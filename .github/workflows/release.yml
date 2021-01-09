@@ -8,6 +8,24 @@ on:
 jobs:
   create_release:
     name: Create GitHub Release
+      runs-on: ubuntu-latest
+      steps:
+          - name: Create Release
+            id: create_release
+            uses: actions/create-release@latest
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+              tag_name: ${{ github.ref }}
+              release_name: Release ${{ github.ref }}
+              body: |
+                Automated Release by GitHub Action CI
+              draft: false
+              prerelease: true
+
+  build:
+    needs: create_release
+    name: Build Release Assets
     runs-on: windows-latest
     env:
       RUSTFLAGS: -Ctarget-feature=+crt-static
@@ -41,7 +59,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ jobs.create_release.steps.create_release.outputs.upload_url }}
           asset_path: target/${{ matrix.edition.target }}/release/genshin-gacha-exporter.exe
           asset_name: genshin-gacha-exporter-${{ matrix.edition.name }}.exe
           asset_content_type: application/vnd.microsoft.portable-executable
