@@ -9,6 +9,8 @@ jobs:
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
         - name: Create Release
           id: create_release
@@ -59,7 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ jobs.create_release.steps.create_release.outputs.upload_url }}
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: target/${{ matrix.edition.target }}/release/genshin-gacha-exporter.exe
           asset_name: genshin-gacha-exporter-${{ matrix.edition.name }}.exe
           asset_content_type: application/vnd.microsoft.portable-executable
