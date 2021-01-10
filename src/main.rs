@@ -12,7 +12,7 @@ use std::{
 use anyhow::{anyhow, Context};
 use chrono::{DateTime, Local, TimeZone};
 use console::style;
-use dialoguer::{theme::ColorfulTheme, Input, Select};
+use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use futures::stream::{self, StreamExt, TryStreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::{Client, Url};
@@ -596,13 +596,12 @@ async fn main() -> anyhow::Result<()> {
 
         stats.print_to_console(&config.name);
 
-        let save_selection: usize = Select::with_theme(&ColorfulTheme::default())
+        if Confirm::with_theme(&theme)
             .with_prompt("是否导出抽卡记录")
-            .item("是")
-            .item("否")
-            .default(0)
-            .interact()?;
-        if save_selection == 0 {
+            .wait_for_newline(true)
+            .default(true)
+            .interact()?
+        {
             let mut save_path = current_dir().unwrap_or(PathBuf::new());
             let now = Local::now();
             save_path.push(format!(
