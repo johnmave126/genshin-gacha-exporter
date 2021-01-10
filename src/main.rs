@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use tokio::task::spawn_blocking;
 
+const TICK_CHARS: &'static str = "▁▃▅▇█▇▅▃▁ ";
+
 #[derive(Debug, Serialize, Deserialize)]
 struct GachaConfig {
     id: String,
@@ -438,8 +440,11 @@ impl<'a> Statistics<'a> {
 }
 
 fn export_results(results: &Vec<(&Item, DateTime<Local>)>, path: &Path) -> anyhow::Result<()> {
-    let pb = ProgressBar::new_spinner()
-        .with_style(ProgressStyle::default_spinner().template("{spinner} {wide_msg}"));
+    let pb = ProgressBar::new_spinner().with_style(
+        ProgressStyle::default_spinner()
+            .tick_chars(TICK_CHARS)
+            .template("{spinner} {wide_msg}"),
+    );
     pb.set_message("正在导出");
     let mut output = File::create(path)?;
     // UTF-8 BOM
@@ -477,7 +482,7 @@ async fn main() -> anyhow::Result<()> {
         let font = ConsoleFontInfoEx {
             size: std::mem::size_of::<ConsoleFontInfoEx>() as u32,
             font_index: 0,
-            font_size: Coord { x: 12, y: 27 },
+            font_size: Coord { x: 14, y: 27 },
             font_family: 54,
             font_weight: 400,
             face_name: font_name,
@@ -487,7 +492,31 @@ async fn main() -> anyhow::Result<()> {
             .expect("unable to set console font");
     }
 
-    let base_url: Url = Input::with_theme(&ColorfulTheme::default())
+    let theme = if cfg!(windows) {
+        ColorfulTheme {
+            prompt_suffix: dialoguer::console::style(">".to_string())
+                .for_stderr()
+                .black()
+                .bright(),
+            active_item_prefix: dialoguer::console::style(">".to_string())
+                .for_stderr()
+                .green(),
+            picked_item_prefix: dialoguer::console::style(">".to_string())
+                .for_stderr()
+                .green(),
+            success_prefix: dialoguer::console::style("√".to_string())
+                .for_stderr()
+                .green(),
+            error_prefix: dialoguer::console::style("×".to_string())
+                .for_stderr()
+                .red(),
+            ..ColorfulTheme::default()
+        }
+    } else {
+        ColorfulTheme::default()
+    };
+
+    let base_url: Url = Input::with_theme(&theme)
         .with_prompt("请输入网址")
         .validate_with(|input: &String| -> anyhow::Result<()> {
             let url = Url::parse(input).map_err(|err| anyhow!("输入不是网址: {}", err))?;
@@ -520,8 +549,9 @@ async fn main() -> anyhow::Result<()> {
 
     let client = Client::new();
     let mp = MultiProgress::new();
-    let spinner_style =
-        ProgressStyle::default_spinner().template("{prefix:.bold.dim} {spinner:.green} {wide_msg}");
+    let spinner_style = ProgressStyle::default_spinner()
+        .tick_chars(TICK_CHARS)
+        .template("{prefix:.bold.dim} {spinner:.green} {wide_msg}");
     let gacha_config_pb = mp.add(ProgressBar::new_spinner().with_style(spinner_style.clone()));
     gacha_config_pb.enable_steady_tick(5);
     gacha_config_pb.set_prefix(&format!("[1/2]"));
@@ -543,7 +573,7 @@ async fn main() -> anyhow::Result<()> {
     // 绝弦
     let weapon_ident = &item_list.get(&15405).unwrap().item_type;
     loop {
-        let selection: usize = Select::with_theme(&ColorfulTheme::default())
+        let selection: usize = Select::with_theme(&theme)
             .with_prompt("请选择需要查询的卡池")
             .items(&gacha_config)
             .item("退出")
@@ -555,7 +585,9 @@ async fn main() -> anyhow::Result<()> {
         }
         let config = &gacha_config[selection];
         let pb = ProgressBar::new_spinner().with_style(
-            ProgressStyle::default_spinner().template("{spinner:.green} {msg}加载{pos}次抽卡记录"),
+            ProgressStyle::default_spinner()
+                .tick_chars(TICK_CHARS)
+                .template("{spinner:.green} {msg}加载{pos}次抽卡记录"),
         );
         let mut results = get_gacha_result_all(&client, &arg_map, &config.key, pb).await?;
         results.reverse();
@@ -578,7 +610,7 @@ async fn main() -> anyhow::Result<()> {
                 now.format("%Y-%m-%d %H-%M-%S"),
                 config.name,
             ));
-            let save_path = Input::with_theme(&ColorfulTheme::default())
+            let save_path = Input::with_theme(&theme)
                 .with_prompt("保存位置")
                 .validate_with(|path: &String| -> anyhow::Result<()> {
                     path.parse::<PathBuf>()?;
