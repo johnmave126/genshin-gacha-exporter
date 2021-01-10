@@ -20,8 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use tokio::task::spawn_blocking;
 
-const TICK_CHARS: &'static str = "▁▃▅▇█▇▅▃▁ ";
-
 #[derive(Debug, Serialize, Deserialize)]
 struct GachaConfig {
     id: String,
@@ -439,12 +437,11 @@ impl<'a> Statistics<'a> {
     }
 }
 
-fn export_results(results: &Vec<(&Item, DateTime<Local>)>, path: &Path) -> anyhow::Result<()> {
-    let pb = ProgressBar::new_spinner().with_style(
-        ProgressStyle::default_spinner()
-            .tick_chars(TICK_CHARS)
-            .template("{spinner} {wide_msg}"),
-    );
+fn export_results(
+    results: &Vec<(&Item, DateTime<Local>)>,
+    path: &Path,
+    pb: ProgressBar,
+) -> anyhow::Result<()> {
     pb.set_message("正在导出");
     let mut output = File::create(path)?;
     // UTF-8 BOM
@@ -515,6 +512,12 @@ async fn run() -> anyhow::Result<()> {
         ColorfulTheme::default()
     };
 
+    let spinner_style = if cfg!(windows) {
+        ProgressStyle::default_spinner().tick_chars("▁▃▅▇█▇▅▃▁√")
+    } else {
+        ProgressStyle::default_spinner()
+    };
+
     let base_url: Url = Input::with_theme(&theme)
         .with_prompt("请输入网址")
         .validate_with(|input: &String| -> anyhow::Result<()> {
@@ -548,13 +551,14 @@ async fn run() -> anyhow::Result<()> {
 
     let client = Client::new();
     let mp = MultiProgress::new();
-    let spinner_style = ProgressStyle::default_spinner()
-        .tick_chars(TICK_CHARS)
+    let prepare_spinner_style = spinner_style
+        .clone()
         .template("{prefix:.bold.dim} {spinner:.green} {wide_msg}");
-    let gacha_config_pb = mp.add(ProgressBar::new_spinner().with_style(spinner_style.clone()));
+    let gacha_config_pb =
+        mp.add(ProgressBar::new_spinner().with_style(prepare_spinner_style.clone()));
     gacha_config_pb.enable_steady_tick(5);
     gacha_config_pb.set_prefix(&format!("[1/2]"));
-    let item_list_pb = mp.add(ProgressBar::new_spinner().with_style(spinner_style));
+    let item_list_pb = mp.add(ProgressBar::new_spinner().with_style(prepare_spinner_style));
     item_list_pb.enable_steady_tick(5);
     item_list_pb.set_prefix(&format!("[2/2]"));
     let progress_task = spawn_blocking(move || mp.join().unwrap());
@@ -584,8 +588,8 @@ async fn run() -> anyhow::Result<()> {
         }
         let config = &gacha_config[selection];
         let pb = ProgressBar::new_spinner().with_style(
-            ProgressStyle::default_spinner()
-                .tick_chars(TICK_CHARS)
+            spinner_style
+                .clone()
                 .template("{spinner:.green} {msg}加载{pos}次抽卡记录"),
         );
         let mut results = get_gacha_result_all(&client, &arg_map, &config.key, pb).await?;
@@ -618,7 +622,12 @@ async fn run() -> anyhow::Result<()> {
                 .interact()?;
             let save_path = PathBuf::from(save_path).with_extension("csv");
 
-            export_results(&results, &save_path)?;
+            let pb = ProgressBar::new_spinner().with_style(
+                spinner_style
+                    .clone()
+                    .template("{spinner:.green} {wide_msg}"),
+            );
+            export_results(&results, &save_path, pb)?;
         }
     }
     Ok(())
