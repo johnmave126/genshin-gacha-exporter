@@ -66,7 +66,7 @@ struct GachaResultPage {
 struct ApiResponse<T> {
     retcode: i32,
     message: String,
-    data: T,
+    data: Option<T>,
 }
 
 #[serde_as]
@@ -124,7 +124,7 @@ async fn get_config_list(
     }
     pb.finish_with_message("已加载卡池列表");
 
-    Ok(resp.data.gacha_type_list)
+    Ok(resp.data.unwrap().gacha_type_list)
 }
 
 async fn get_item_list(
@@ -164,7 +164,7 @@ async fn get_gacha_result(
         return Err(anyhow!(resp.message));
     }
 
-    Ok(resp.data.list)
+    Ok(resp.data.unwrap().list)
 }
 
 async fn get_gacha_result_all(
@@ -467,8 +467,7 @@ fn export_results(results: &Vec<(&Item, DateTime<Local>)>, path: &Path) -> anyho
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn run() -> anyhow::Result<()> {
     #[cfg(windows)]
     {
         use win32console::console::WinConsole;
@@ -623,4 +622,25 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    if let Err(err) = run().await {
+        println!(
+            "{}{}{}",
+            style("错误: ").red(),
+            err,
+            err.source()
+                .map(|err| format!(": {}", err))
+                .unwrap_or("".to_owned())
+        );
+        Input::<String>::new()
+            .with_prompt("按回车键退出")
+            .allow_empty(true)
+            .interact()?;
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
