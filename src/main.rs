@@ -78,7 +78,7 @@ struct Item {
     rank_type: u8,
 }
 
-const REQUIRED_FIELDS: &[&'static str] = &[
+const REQUIRED_FIELDS: &[&str] = &[
     "authkey_ver",
     "sign_type",
     "auth_appid",
@@ -89,12 +89,10 @@ const REQUIRED_FIELDS: &[&'static str] = &[
     "region",
 ];
 
-const ADDITIONAL_FIELDS: &[&'static str] = &["device_type", "ext", "game_version"];
+const ADDITIONAL_FIELDS: &[&str] = &["device_type", "ext", "game_version"];
 
-const CONFIG_LIST_URL: &'static str =
-    "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getConfigList";
-const GACHA_LOG_URL: &'static str =
-    "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getGachaLog";
+const CONFIG_LIST_URL: &str = "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getConfigList";
+const GACHA_LOG_URL: &str = "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getGachaLog";
 
 fn item_list_url(region: &str, lang: &str) -> Url {
     Url::parse(&format!(
@@ -174,13 +172,11 @@ async fn get_gacha_result_all(
     pb.set_message("正在加载，已");
     let result: Vec<GachaResult> = stream::iter(1..)
         .then(|page| get_gacha_result(client, raw_queries, pool, page))
-        .try_take_while(|results| future::ready(Ok(results.len() > 0)))
+        .try_take_while(|results| future::ready(Ok(!results.is_empty())))
         .and_then(|results| {
             pb.inc(results.len() as u64);
             future::ready(Ok(stream::iter(
-                results
-                    .into_iter()
-                    .map(|result| Ok::<_, anyhow::Error>(result)),
+                results.into_iter().map(Ok::<_, anyhow::Error>),
             )))
         })
         .try_flatten()
@@ -231,7 +227,7 @@ struct Statistics<'a> {
 }
 
 impl<'a> Statistics<'a> {
-    fn from(results: &'a Vec<(&'a Item, DateTime<Local>)>, weapon_ident: &str) -> Self {
+    fn from(results: &[(&'a Item, DateTime<Local>)], weapon_ident: &str) -> Self {
         #[derive(Default)]
         struct IntermediateStats<'a> {
             total: usize,
@@ -336,7 +332,7 @@ impl<'a> Statistics<'a> {
                 }
             }
 
-            fn to_final_stat(self) -> Statistics<'a> {
+            fn into_final_stat(self) -> Statistics<'a> {
                 Statistics {
                     total: self.total,
                     star5: self.star5,
@@ -373,7 +369,7 @@ impl<'a> Statistics<'a> {
                 stats.update(result, weapon_ident)
             });
 
-        numerical_stats.to_final_stat()
+        numerical_stats.into_final_stat()
     }
 
     fn print_to_console(&self, pool_name: &str) {
@@ -438,7 +434,7 @@ impl<'a> Statistics<'a> {
 }
 
 fn export_results(
-    results: &Vec<(&Item, DateTime<Local>)>,
+    results: &[(&Item, DateTime<Local>)],
     path: &Path,
     pb: ProgressBar,
 ) -> anyhow::Result<()> {
@@ -557,10 +553,10 @@ async fn run() -> anyhow::Result<()> {
     let gacha_config_pb =
         mp.add(ProgressBar::new_spinner().with_style(prepare_spinner_style.clone()));
     gacha_config_pb.enable_steady_tick(5);
-    gacha_config_pb.set_prefix(&format!("[1/2]"));
+    gacha_config_pb.set_prefix(&"[1/2]".to_string());
     let item_list_pb = mp.add(ProgressBar::new_spinner().with_style(prepare_spinner_style));
     item_list_pb.enable_steady_tick(5);
-    item_list_pb.set_prefix(&format!("[2/2]"));
+    item_list_pb.set_prefix(&"[2/2]".to_string());
     let progress_task = spawn_blocking(move || mp.join().unwrap());
     let (gacha_config, item_list, _) = tokio::join!(
         get_config_list(&client, &arg_map, gacha_config_pb),
@@ -571,7 +567,7 @@ async fn run() -> anyhow::Result<()> {
     let item_list = item_list.context("加载图鉴失败")?;
     let item_list: HashMap<usize, Item> = item_list
         .into_iter()
-        .map(|item| (item.item_id.clone(), item))
+        .map(|item| (item.item_id, item))
         .collect();
     // 绝弦
     let weapon_ident = &item_list.get(&15405).unwrap().item_type;
@@ -605,7 +601,7 @@ async fn run() -> anyhow::Result<()> {
             .default(true)
             .interact()?
         {
-            let mut save_path = current_dir().unwrap_or(PathBuf::new());
+            let mut save_path = current_dir().unwrap_or_default();
             let now = Local::now();
             save_path.push(format!(
                 "{}-{}.csv",
@@ -642,7 +638,7 @@ async fn main() -> anyhow::Result<()> {
             err,
             err.source()
                 .map(|err| format!(": {}", err))
-                .unwrap_or("".to_owned())
+                .unwrap_or_default()
         );
         Input::<String>::new()
             .with_prompt("按回车键退出")
