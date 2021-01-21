@@ -22,7 +22,7 @@ jobs:
             release_name: Release ${{ github.ref }}
             body: |
               Automated Release by GitHub Action CI
-              ${{ github.event.head_commit.message }}
+              * ${{ join(github.event.commits.*.message, '\n* ') }}
             draft: false
             prerelease: true
 
