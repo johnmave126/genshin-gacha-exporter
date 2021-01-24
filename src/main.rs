@@ -93,14 +93,7 @@ async fn run() -> anyhow::Result<()> {
 async fn main() -> anyhow::Result<()> {
     // catch any error and display it
     if let Err(err) = run().await {
-        println!(
-            "{}{}{}",
-            style("错误: ").red(),
-            err,
-            err.source()
-                .map(|err| format!(": {}", err))
-                .unwrap_or_default()
-        );
+        eprintln!("{}{:?}", style("错误: ").red(), err);
         Input::<String>::new()
             .with_prompt("按回车键退出")
             .allow_empty(true)
