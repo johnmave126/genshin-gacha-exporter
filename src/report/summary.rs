@@ -152,27 +152,27 @@ impl<'a> Summary<'a> {
             )
             .with_style(StyledObject::red),
         )?;
-        if let Some((item, count)) = self.stats_per_rarity[Rarity::Five]
-            .sorted_occurrence
-            .first()
-        {
-            writeln!(
-                output,
-                "抽出的五星中，{}出现次数最多，抽出{}次",
-                stylizer(item.name.clone()).with_style(StyledObject::yellow),
-                stylizer(count.to_string()).with_style(StyledObject::blue),
-            )?;
+        if self.stats_per_rarity[Rarity::Five].sorted_occurrence.len() > 0 {
+            writeln!(output, "抽出的五星次数：",)?;
+            for (item, count) in self.stats_per_rarity[Rarity::Five].sorted_occurrence.iter() {
+                writeln!(
+                    output,
+                    "  {}： {}次",
+                    stylizer(item.name.clone()).with_style(StyledObject::yellow),
+                    stylizer(count.to_string()).with_style(StyledObject::blue),
+                )?;
+            }
         }
-        if let Some((item, count)) = self.stats_per_rarity[Rarity::Four]
-            .sorted_occurrence
-            .first()
-        {
-            writeln!(
-                output,
-                "抽出的四星中，{}出现次数最多，抽出{}次",
-                stylizer(item.name.clone()).with_style(StyledObject::magenta),
-                stylizer(count.to_string()).with_style(StyledObject::blue),
-            )?;
+        if self.stats_per_rarity[Rarity::Four].sorted_occurrence.len() > 0 {
+            writeln!(output, "抽出的四星次数：",)?;
+            for (item, count) in self.stats_per_rarity[Rarity::Four].sorted_occurrence.iter() {
+                writeln!(
+                    output,
+                    "  {}： {}次",
+                    stylizer(item.name.clone()).with_style(StyledObject::magenta),
+                    stylizer(count.to_string()).with_style(StyledObject::blue),
+                )?;
+            }
         }
         output.flush()?;
         Ok(())
