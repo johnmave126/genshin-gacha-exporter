@@ -124,7 +124,13 @@ impl Client {
     /// Create the client from an url pointing to in-game gacha page
     pub async fn new(url: Url) -> anyhow::Result<Self> {
         let base_query = BaseQuery::new(&url)?;
-        let base_url = url.as_str().replacen(PAGE_INTERCEPT_SUFFIX, "", 1);
+
+        let base_url = format!(
+            "{}://{}{}",
+            url.scheme(),
+            url.host_str().unwrap(),
+            url.path().replacen(PAGE_INTERCEPT_SUFFIX, "", 1)
+        );
 
         // build web client
         let mut headers = HeaderMap::new();

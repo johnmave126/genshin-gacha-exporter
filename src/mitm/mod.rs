@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub const DOMAIN_INTERCEPT: &[&str] = &["hk4e-api.mihoyo.com", "hk4e-api-os.mihoyo.com"];
-pub const PAGE_INTERCEPT_SUFFIX: &str = "getGachaLog";
+pub const PAGE_INTERCEPT_SUFFIX: &str = "/getGachaLog";
 
 /// Set up proxy server to tap connection and look for gacha url
 pub async fn tap_for_url() -> anyhow::Result<Url> {
