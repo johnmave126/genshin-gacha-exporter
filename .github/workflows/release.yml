@@ -48,7 +48,7 @@ jobs:
   build:
     needs: create_release
     name: Build Release Assets
-    runs-on: windows-latest
+    runs-on: windows-2016
     env:
       RUSTFLAGS: -Ctarget-feature=+crt-static
 
