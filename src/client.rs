@@ -135,6 +135,7 @@ impl Client {
             .default_headers(headers)
             .user_agent(USER_AGENT)
             .gzip(true)
+            .no_proxy()
             .build()
             .unwrap();
 
@@ -237,7 +238,7 @@ impl Client {
     fn add_spinner(mp: &MultiProgress, step: usize, total: usize) -> ProgressBar {
         let style = SPINNER_STYLE
             .clone()
-            .template("{prefix:.bold.dim}{spinner:.green} {wide_msg}");
+            .template("{prefix:.bold.dim}{spinner:.green} {msg}");
         let pb = mp.add(ProgressBar::new_spinner().with_style(style));
         pb.enable_steady_tick(5);
         pb.set_prefix(&format!("[{}/{}]", step, total));

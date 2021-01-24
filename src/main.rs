@@ -1,6 +1,7 @@
 mod client;
 mod data_type;
 mod export;
+mod mitm;
 mod report;
 mod style;
 
@@ -15,6 +16,7 @@ use reqwest::Url;
 use crate::{
     client::Client,
     export::export_csv,
+    mitm::tap_for_url,
     report::{summary::Summary, Report},
     style::{init as init_style, THEME},
 };
@@ -22,20 +24,31 @@ use crate::{
 async fn run() -> anyhow::Result<()> {
     init_style();
 
-    let url: Url = Input::with_theme(&*THEME)
-        .with_prompt("请输入网址")
-        .validate_with(|input: &String| -> anyhow::Result<()> {
-            // input must be a url and something from in-game client
-            let url = Url::parse(input).map_err(|err| anyhow!("输入不是网址: {}", err))?;
-            if Client::verify_url(&url) {
-                Ok(())
-            } else {
-                Err(anyhow!("输入网址不是有效的抽卡记录网址"))
-            }
-        })
+    let url: Url = if Select::with_theme(&*THEME)
+        .with_prompt("请选择模式")
+        .item("代理模式： 启动HTTP代理自动获取网址")
+        .item("手动模式： 输入从Fiddler获取的网址")
+        .default(0)
         .interact()?
-        .parse()
-        .unwrap();
+        == 0
+    {
+        tap_for_url().await?
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("请输入网址")
+            .validate_with(|input: &String| -> anyhow::Result<()> {
+                // input must be a url and something from in-game client
+                let url = Url::parse(input).map_err(|err| anyhow!("输入不是网址: {}", err))?;
+                if Client::verify_url(&url) {
+                    Ok(())
+                } else {
+                    Err(anyhow!("输入网址不是有效的抽卡记录网址"))
+                }
+            })
+            .interact()?
+            .parse()
+            .unwrap()
+    };
 
     let client = Client::new(url).await.context("初始化客户端失败")?;
     let pools = client.get_pools();

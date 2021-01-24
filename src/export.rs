@@ -6,11 +6,8 @@ use crate::{data_type::Pull, style::SPINNER_STYLE};
 
 /// export a list of pulls into a csv file
 pub fn export_csv(results: &[Pull], path: &Path) -> io::Result<()> {
-    let pb = ProgressBar::new_spinner().with_style(
-        SPINNER_STYLE
-            .clone()
-            .template("{spinner:.green} {wide_msg}"),
-    );
+    let pb = ProgressBar::new_spinner()
+        .with_style(SPINNER_STYLE.clone().template("{spinner:.green} {msg}"));
     pb.set_message("正在导出");
     let mut output = File::create(path)?;
     // UTF-8 BOM
