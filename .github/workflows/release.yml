@@ -20,11 +20,15 @@ jobs:
       - name: Build Log
         id: log
         run: |
-          log=$(git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -1`..${{ github.event.after }})
-          log="${log//'%'/'%25'}"
-          log="${log//$'\n'/'%0A'}"
-          log="${log//$'\r'/'%0D'}"
-          echo "::set-output name=log::$log"
+          LAST_TAG=`git tag --sort=-taggerdate | head -1`
+          CURR_TAG=${{ github.event.after }}
+          LOG=$(git log --pretty=format:'* %h: %s' $LAST_TAG..$CURR_TAG)
+          LOG="${LOG//'%'/'%25'}"
+          LOG="${LOG//$'\n'/'%0A'}"
+          LOG="${LOG//$'\r'/'%0D'}"
+          echo "::set-output name=log::$LOG"
+          echo "::set-output name=last::$LAST_TAG"
+          echo "::set-output name=curr::$CURR_TAG"
 
       - name: Create Release
         id: create_release
@@ -36,7 +40,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Automated Release by GitHub Action CI
-            [Changes](${{ github.event.compare }}):
+            [Changes](${{ github.event.repository.url }}/compare/${{ steps.log.outputs.last }}..${{ steps.log.outputs.curr }}):
             ${{ steps.log.outputs.log }}
           draft: false
           prerelease: true
