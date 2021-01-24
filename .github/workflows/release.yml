@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      id: ${{ steps.create_release.outputs.id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -42,8 +43,8 @@ jobs:
             Automated Release by GitHub Action CI
             [Changes](${{ github.event.repository.url }}/compare/${{ steps.log.outputs.last }}..${{ github.event.head_commit.sha }}):
             ${{ steps.log.outputs.log }}
-          draft: false
-          prerelease: true
+          draft: true
+          prerelease: false
 
   build:
     needs: create_release
@@ -85,3 +86,17 @@ jobs:
           asset_path: target/${{ matrix.edition.target }}/release/genshin-gacha-exporter.exe
           asset_name: genshin-gacha-exporter-${{ matrix.edition.name }}.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+
+  publish:
+    needs:
+      - create_release
+      - build
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: publish
+        uses: eregon/publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_id: ${{ needs.create_release.outputs.id }}
