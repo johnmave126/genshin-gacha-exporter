@@ -20,11 +20,7 @@ jobs:
       - name: Build Log
         id: log
         run: |
-          echo Old Tag: `git tag --sort=-taggerdate | head -2 | tail -1`
-          echo New Tag: `git tag --sort=-taggerdate | head -1`
-          git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -2 | tail -1`..`git tag --sort=-taggerdate | head -1`
-          log=$(git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -2 | tail -1`..`git tag --sort=-taggerdate | head -1`)
-          echo $log
+          log=$(git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -1`..${{ github.event.after }})
           log="${log//'%'/'%25'}"
           log="${log//$'\n'/'%0A'}"
           log="${log//$'\r'/'%0D'}"
