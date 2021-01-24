@@ -85,8 +85,14 @@ pub fn setup_certificate() -> anyhow::Result<(Certificate, PrivateKey)> {
         cert
     };
 
-    let cert = generate_simple_self_signed(vec![DOMAIN_INTERCEPT.to_owned()])
-        .context("无法生成网站用证书")?;
+    let cert = generate_simple_self_signed(
+        DOMAIN_INTERCEPT
+            .iter()
+            .cloned()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<String>>(),
+    )
+    .context("无法生成网站用证书")?;
     let cert_der = cert
         .serialize_der_with_signer(&ca_cert)
         .context("无法签发网站用证书")?;
@@ -100,7 +106,13 @@ fn generate_ca_cerficate_params() -> CertificateParams {
     let mut distinguished_name = DistinguishedName::new();
     distinguished_name.push(DnType::CommonName, "DO_NOT_TRUST Genshin Exporter CA");
     // TODO: fork `rcgen` and add support for [Key Usage Extension](https://tools.ietf.org/html/rfc5280#section-4.2.1.3)
-    let mut params = CertificateParams::new(vec![DOMAIN_INTERCEPT.to_owned()]);
+    let mut params = CertificateParams::new(
+        DOMAIN_INTERCEPT
+            .iter()
+            .cloned()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<String>>(),
+    );
     params.distinguished_name = distinguished_name;
     params.is_ca = IsCa::Ca(BasicConstraints::Constrained(0));
     params

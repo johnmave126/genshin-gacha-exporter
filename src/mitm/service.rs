@@ -31,10 +31,7 @@ use tokio::{
 };
 use tokio_rustls::TlsAcceptor;
 
-use crate::{
-    client::Client as ApiClient,
-    mitm::{DOMAIN_INTERCEPT, PAGE_INTERCEPT_SUFFIX},
-};
+use crate::mitm::{DOMAIN_INTERCEPT, PAGE_INTERCEPT_SUFFIX};
 
 #[derive(Clone)]
 pub struct MitmService {
@@ -89,7 +86,8 @@ impl Service<Request<Body>> for MitmService {
     fn call(&mut self, req: Request<Body>) -> Self::Future {
         if *req.method() == Method::CONNECT {
             // Handle SSL request
-            if req.uri().authority().map(|a| a.host()) == Some(DOMAIN_INTERCEPT) {
+            let host = req.uri().authority().map(|a| a.host());
+            if DOMAIN_INTERCEPT.iter().any(|&domain| host == Some(domain)) {
                 Box::pin(self.clone().proxy_intercept(req))
             } else {
                 Box::pin(self.clone().proxy_pass_tls(req))
@@ -122,7 +120,12 @@ impl MitmService {
                     async move {
                         let new_uri = Uri::builder()
                             .scheme("https")
-                            .authority(DOMAIN_INTERCEPT)
+                            .authority(
+                                req.headers()
+                                    .get("host")
+                                    .map(|h| h.to_str().unwrap())
+                                    .unwrap(),
+                            )
                             .path_and_query(
                                 req.uri()
                                     .path_and_query()
@@ -139,9 +142,7 @@ impl MitmService {
                             == Some(true)
                         {
                             let url = req.uri().to_string().parse().unwrap();
-                            if ApiClient::verify_url(&url) {
-                                sender.send(url).await?;
-                            }
+                            sender.send(url).await?;
                         }
                         Ok::<_, anyhow::Error>(client.request(req).await?)
                     }

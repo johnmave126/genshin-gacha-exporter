@@ -13,8 +13,8 @@ use crate::{
     style::{SPINNER_STYLE, THEME},
 };
 
-pub const DOMAIN_INTERCEPT: &str = "webstatic-sea.mihoyo.com";
-pub const PAGE_INTERCEPT_SUFFIX: &str = "index.html";
+pub const DOMAIN_INTERCEPT: &[&str] = &["hk4e-api.mihoyo.com", "hk4e-api-os.mihoyo.com"];
+pub const PAGE_INTERCEPT_SUFFIX: &str = "getGachaLog";
 
 /// Set up proxy server to tap connection and look for gacha url
 pub async fn tap_for_url() -> anyhow::Result<Url> {

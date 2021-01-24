@@ -40,7 +40,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Automated Release by GitHub Action CI
-            [Changes](${{ github.event.repository.url }}/compare/${{ steps.log.outputs.last }}..${{ steps.log.outputs.curr }}):
+            [Changes](${{ github.event.repository.url }}/compare/${{ steps.log.outputs.last }}..${{ github.event.head_commit.sha }}):
             ${{ steps.log.outputs.log }}
           draft: false
           prerelease: true
