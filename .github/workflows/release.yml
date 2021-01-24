@@ -12,19 +12,38 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-        - name: Create Release
-          id: create_release
-          uses: actions/create-release@latest
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
-            tag_name: ${{ github.ref }}
-            release_name: Release ${{ github.ref }}
-            body: |
-              Automated Release by GitHub Action CI
-              * ${{ join(github.event.commits.*.message, '\n* ') }}
-            draft: false
-            prerelease: true
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Build Log
+        id: log
+        run: |
+          echo Old Tag: `git tag --sort=-taggerdate | head -2 | tail -1`
+          echo New Tag: `git tag --sort=-taggerdate | head -1`
+          git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -2 | tail -1`..`git tag --sort=-taggerdate | head -1`
+          log=$(git log --pretty=format:'* %h: %s' `git tag --sort=-taggerdate | head -2 | tail -1`..`git tag --sort=-taggerdate | head -1`)
+          echo $log
+          log="${log//'%'/'%25'}"
+          log="${log//$'\n'/'%0A'}"
+          log="${log//$'\r'/'%0D'}"
+          echo "::set-output name=log::$log"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Automated Release by GitHub Action CI
+            [Changes](${{ github.event.compare }}):
+            ${{ steps.log.outputs.log }}
+          draft: false
+          prerelease: true
 
   build:
     needs: create_release
