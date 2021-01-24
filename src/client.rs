@@ -15,13 +15,9 @@ use tokio::task::spawn_blocking;
 
 use crate::{
     data_type::{Item, ItemType, Pool, Pull, Rarity},
+    mitm::PAGE_INTERCEPT_SUFFIX,
     style::SPINNER_STYLE,
 };
-
-/// URL for getting list of pools
-const CONFIG_LIST_URL: &str = "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getConfigList";
-/// URL for getting gacha log
-const GACHA_LOG_URL: &str = "https://hk4e-api-os.mihoyo.com/event/gacha_info/api/getGachaLog";
 
 /// Return the url for item list given region of server and language to use
 fn item_list_url(region: &str, lang: &str) -> Url {
@@ -120,12 +116,15 @@ pub struct Client {
     client: ReqClient,
     /// base query to use
     base_query: BaseQuery,
+    /// base url to use
+    base_url: String,
 }
 
 impl Client {
     /// Create the client from an url pointing to in-game gacha page
     pub async fn new(url: Url) -> anyhow::Result<Self> {
         let base_query = BaseQuery::new(&url)?;
+        let base_url = url.as_str().replacen(PAGE_INTERCEPT_SUFFIX, "", 1);
 
         // build web client
         let mut headers = HeaderMap::new();
@@ -144,7 +143,7 @@ impl Client {
         let pools_pb = Self::add_spinner(&mp, 1, 2);
         let items_pb = Self::add_spinner(&mp, 2, 2);
 
-        let pools_task = Self::request_pools(&client, &base_query, pools_pb);
+        let pools_task = Self::request_pools(&client, &base_query, &base_url, pools_pb);
         let items_task = Self::request_items(&client, &base_query, items_pb);
         let progress_task = spawn_blocking(move || mp.join());
         let (pools, items, _) = tokio::join!(pools_task, items_task, progress_task);
@@ -156,6 +155,7 @@ impl Client {
             items,
             client,
             base_query,
+            base_url,
         })
     }
 
@@ -188,7 +188,7 @@ impl Client {
                     let page: GachaResultPage = Self::issue_api(
                         &self.client,
                         &self.base_query,
-                        GACHA_LOG_URL,
+                        &format!("{}/getGachaLog", self.base_url),
                         query
                             .into_iter()
                             .chain(once(("page".to_owned(), page.to_string()))),
@@ -249,11 +249,17 @@ impl Client {
     async fn request_pools(
         client: &ReqClient,
         base_query: &BaseQuery,
+        base_url: &str,
         pb: ProgressBar,
     ) -> anyhow::Result<Vec<Pool>> {
         pb.set_message("加载卡池列表");
-        let config_list: ConfigListData =
-            Self::issue_api(client, base_query, CONFIG_LIST_URL, None).await?;
+        let config_list: ConfigListData = Self::issue_api(
+            client,
+            base_query,
+            &format!("{}/getConfigList", base_url),
+            None,
+        )
+        .await?;
         pb.finish_with_message("已加载卡池列表");
         Ok(config_list
             .gacha_type_list
