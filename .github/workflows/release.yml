@@ -61,6 +61,10 @@ jobs:
             name: x64
           - target: i686-pc-windows-msvc
             name: x86
+          - target: x86_64-pc-windows-gnu
+            name: x64-gnu
+          - target: i686-pc-windows-gnu
+            name: x86-gnu
 
     steps:
       - name: Checkout
@@ -70,9 +74,19 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           target: ${{ matrix.edition.target }}
-          toolchain: stable
+          toolchain: stable-${{ matrix.edition.target }}
           default: true
           override: true
+
+      - name: Add mingw32 to path for i686-gnu
+        run: echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
+        if: matrix.edition.target == 'i686-pc-windows-gnu'
+        shell: bash
+
+      - name: Add mingw64 to path for x86_64-gnu
+        run: echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+        if: matrix.edition.target == 'x86_64-pc-windows-gnu'
+        shell: bash
 
       - name: Build
         run: cargo build --target ${{ matrix.edition.target }} --release
