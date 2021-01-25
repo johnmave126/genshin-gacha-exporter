@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.37"
+anyhow = "1.0.38"
 chrono = "0.4.19"
 console = "0.14.0"
 dialoguer = "0.7.1"
@@ -21,11 +21,12 @@ lazy_static = "1.4.0"
 rcgen = { version = "0.8.9", features = ["x509-parser"] }
 reqwest = { version = "0.11.0", features = ["json", "gzip", "cookies"] }
 rustls = "0.19.0"
-serde = { version = "1.0.118", features = ["derive"] }
-serde_with = "1.6.0"
-tokio = { version = "1.0.1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+serde = { version = "1.0.122", features = ["derive"] }
+serde_with = "1.6.1"
+tokio = { version = "1.1.0", features = ["rt-multi-thread", "macros", "net", "io-util"] }
 tokio-rustls = "0.22.0"
 
 [target.'cfg(windows)'.dependencies]
 win32console = "0.1.4"
 proxyconf = "0.2.1"
+ctrlc = { version = "3.1.7", features = ["termination"] }

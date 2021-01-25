@@ -35,7 +35,13 @@ pub async fn tap_for_url() -> anyhow::Result<Url> {
                 empty_config,
                 registry::{self, get_current_user_location},
             };
-            use std::process::Command;
+            use std::{
+                process::Command,
+                sync::{
+                    atomic::{AtomicBool, Ordering},
+                    Arc,
+                },
+            };
 
             // add certificate to user root store
             Command::new("certutil")
@@ -55,7 +61,17 @@ pub async fn tap_for_url() -> anyhow::Result<Url> {
             registry::write(&proxy_location, proxy_config)
                 .map_err(|e| anyhow!(format!("{}", e)))?;
 
-            Some(old_proxy_settings)
+            let need_restore = Arc::new(AtomicBool::new(true));
+            let need_restore_2 = need_restore.clone();
+            let old_proxy_settings_2 = old_proxy_settings.clone();
+            ctrlc::set_handler(move || {
+                if need_restore_2.load(Ordering::SeqCst) {
+                    registry::write_full(&proxy_location, &old_proxy_settings_2).ok();
+                }
+                std::process::exit(0);
+            })?;
+
+            Some((old_proxy_settings, need_restore))
         } else {
             None
         }
@@ -81,13 +97,15 @@ pub async fn tap_for_url() -> anyhow::Result<Url> {
         .ok_or_else(|| anyhow!("broken pipe of URL retrieval"))?;
 
     #[cfg(target_os = "windows")]
-    if let Some(old_proxy_settings) = old_proxy_settings {
+    if let Some((old_proxy_settings, need_restore)) = old_proxy_settings {
         // Restore proxy settings
         use proxyconf::internet_settings::modern::registry::{self, get_current_user_location};
+        use std::sync::atomic::Ordering;
 
         let proxy_location = get_current_user_location();
         registry::write_full(&proxy_location, &old_proxy_settings)
             .map_err(|e| anyhow!(format!("{}", e)))?;
+        need_restore.store(false, Ordering::SeqCst);
     }
 
     pb.finish_with_message(&format!("成功获取抽卡页面： {}", url));
