@@ -20,28 +20,12 @@ use crate::{
 };
 
 /// Return the url for item list given region of server and language to use
-fn item_list_url(region: &str, lang: &str) -> anyhow::Result<Url> {
-    let lang = match lang {
-        "en" => "en-us", // English-United_Staes
-        "ja" => "ja-jp", // Japanese-Japan
-        "ko" => "ko-kr", // Korean-Korea
-        "es" => "es-es", // Spainish-Spain
-        "fr" => "fr-fr", // Frensh-France
-        "ru" => "ru-ru", // Russian-Russia
-        "th" => "th-th", // Thai-Thailand
-        "vi" => "vi-vn", // Vietnamese-Vietnam
-        "de" => "de-de", // Germany-German
-        "id" => "id-id", // Indonesian-Indonesia
-        "pt" => "pt-pt", // Portuguese-Portugal
-        "zh-cn" | "zh-tw" => lang,
-        _ => {
-            return Err(anyhow!("无法识别的语言，请在https://github.com/johnmave126/genshin-gacha-exporter/issues提出issue"));
-        }
-    };
-    Ok(Url::parse(&format!(
+fn item_list_url(region: &str, lang: &str) -> Url {
+    Url::parse(&format!(
         "https://webstatic-sea.mihoyo.com/hk4e/gacha_info/{}/items/{}.json",
         region, lang
-    ))?)
+    ))
+    .unwrap()
 }
 
 /// ID for "The Stringless", used to identify the local identifier for weapon
@@ -318,7 +302,7 @@ impl Client {
     ) -> anyhow::Result<(String, String)> {
         pb.set_message("加载图鉴");
         // get region/lang specific url
-        let url = item_list_url(&base_query.region, &base_query.lang)?;
+        let url = item_list_url(&base_query.region, &base_query.lang);
         let item_list = client
             .get(url)
             .send()
