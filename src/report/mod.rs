@@ -5,9 +5,9 @@ use std::io::{self, Write};
 use crate::data_type::Pull;
 
 /// Trait for generating analysis on gacha log
-pub trait Report<'a> {
+pub trait Report {
     /// Creating the report from a list of pulls
-    fn new(log: &'a Vec<Pull>) -> Self;
+    fn new(log: &Vec<Pull>) -> Self;
     /// Display report in the console, by default we use `write` to
     /// display non-styled report
     fn print(&self) {

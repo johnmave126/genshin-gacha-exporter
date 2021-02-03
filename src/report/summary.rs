@@ -15,11 +15,11 @@ use crate::{
 
 /// Contains a summary of basic stats regarding a gacha log
 #[derive(Debug)]
-pub struct Summary<'a> {
+pub struct Summary {
     /// total number of pulls
     pub len: usize,
     /// stats of correspondent rarity
-    pub stats_per_rarity: EnumMap<Rarity, StatsForRarity<'a>>,
+    pub stats_per_rarity: EnumMap<Rarity, StatsForRarity>,
     /// stats of correspondent item type
     pub stats_per_type: EnumMap<ItemType, StatsForType>,
 }
@@ -52,7 +52,7 @@ impl StylizedString {
     }
 }
 
-impl<'a> Summary<'a> {
+impl Summary {
     /// pretty print the summary
     fn write_to<T: Write>(&self, output: &mut T, with_style: bool) -> io::Result<()> {
         let stylizer: Box<dyn Fn(String) -> StylizedString> = if with_style {
@@ -179,8 +179,8 @@ impl<'a> Summary<'a> {
     }
 }
 
-impl<'a> Report<'a> for Summary<'a> {
-    fn new(log: &'a Vec<Pull>) -> Self {
+impl Report for Summary {
+    fn new(log: &Vec<Pull>) -> Self {
         log.iter()
             .fold(IntermediateSummary::default(), |mut summary, pull| {
                 summary.update(pull);
@@ -198,17 +198,17 @@ impl<'a> Report<'a> for Summary<'a> {
 
 /// Intermediate summary while folding
 #[derive(Debug, Default)]
-struct IntermediateSummary<'a> {
+struct IntermediateSummary {
     /// total number of pulls
     len: usize,
     /// stats of correspondent rarity
-    stats_per_rarity: EnumMap<Rarity, IntermediateStatsForRarity<'a>>,
+    stats_per_rarity: EnumMap<Rarity, IntermediateStatsForRarity>,
     /// stats of correspondent item type
     stats_per_type: EnumMap<ItemType, StatsForType>,
 }
 
-impl<'a> IntermediateSummary<'a> {
-    fn update(&mut self, pull: &'a Pull) {
+impl IntermediateSummary {
+    fn update(&mut self, pull: &Pull) {
         self.len += 1;
         for (rarity, stats) in self.stats_per_rarity.iter_mut() {
             stats.update(rarity, pull);
@@ -217,8 +217,8 @@ impl<'a> IntermediateSummary<'a> {
     }
 }
 
-impl<'a> Into<Summary<'a>> for IntermediateSummary<'a> {
-    fn into(self) -> Summary<'a> {
+impl Into<Summary> for IntermediateSummary {
+    fn into(self) -> Summary {
         let mut stats_per_rarity = EnumMap::new();
         stats_per_rarity.extend(
             self.stats_per_rarity
@@ -235,36 +235,36 @@ impl<'a> Into<Summary<'a>> for IntermediateSummary<'a> {
 
 /// Statistics classified by rarity
 #[derive(Default, Debug)]
-pub struct StatsForRarity<'a> {
+pub struct StatsForRarity {
     /// total pulls in this rarity
     pub num: usize,
     pub current_streak: usize,
     pub longest_streak: usize,
     pub current_drought: usize,
     pub longest_drought: usize,
-    pub sorted_occurrence: Vec<(&'a Item, usize)>,
+    pub sorted_occurrence: Vec<(Item, usize)>,
 }
 
 /// Intermediate statistics classified by rarity
 #[derive(Default, Debug)]
-struct IntermediateStatsForRarity<'a> {
+struct IntermediateStatsForRarity {
     /// total pulls in this rarity
     num: usize,
     current_streak: usize,
     longest_streak: usize,
     current_drought: usize,
     longest_drought: usize,
-    occurrences: HashMap<&'a Item, usize>,
+    occurrences: HashMap<Item, usize>,
 }
 
-impl<'a> IntermediateStatsForRarity<'a> {
-    fn update(&mut self, rarity: Rarity, pull: &'a Pull) {
+impl<'a> IntermediateStatsForRarity {
+    fn update(&mut self, rarity: Rarity, pull: &Pull) {
         if rarity == pull.item.rarity {
             self.num += 1;
             self.current_streak += 1;
             self.longest_streak = cmp::max(self.current_streak, self.longest_streak);
             self.current_drought = 0;
-            *self.occurrences.entry(pull.item).or_insert(0) += 1;
+            *self.occurrences.entry(pull.item.clone()).or_insert(0) += 1;
         } else {
             self.current_streak = 0;
             self.current_drought += 1;
@@ -273,9 +273,9 @@ impl<'a> IntermediateStatsForRarity<'a> {
     }
 }
 
-impl<'a> Into<StatsForRarity<'a>> for IntermediateStatsForRarity<'a> {
-    fn into(mut self) -> StatsForRarity<'a> {
-        let mut sorted_occurrence: Vec<(&'a Item, usize)> = self.occurrences.drain().collect();
+impl Into<StatsForRarity> for IntermediateStatsForRarity {
+    fn into(mut self) -> StatsForRarity {
+        let mut sorted_occurrence: Vec<(Item, usize)> = self.occurrences.drain().collect();
         sorted_occurrence.sort_by_key(|(_, cnt)| cmp::Reverse(*cnt));
         StatsForRarity {
             num: self.num,

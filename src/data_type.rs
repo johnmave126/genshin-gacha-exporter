@@ -1,13 +1,9 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-    ptr,
-};
+use std::{fmt, hash::Hash};
 
 use chrono::{DateTime, Local};
 use enum_map::Enum;
 
-#[derive(Debug, Enum, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Enum, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ItemType {
     Weapon,
     Character,
@@ -22,7 +18,7 @@ impl fmt::Display for ItemType {
     }
 }
 
-#[derive(Debug, Enum, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Enum, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Rarity {
     Three,
     Four,
@@ -40,35 +36,18 @@ impl fmt::Display for Rarity {
 }
 
 /// information of an item
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Item {
     pub name: String,
     pub item_type: ItemType,
     pub rarity: Rarity,
 }
 
-impl<'a> Hash for &'a Item {
-    fn hash<H>(&self, hasher: &mut H)
-    where
-        H: Hasher,
-    {
-        ptr::hash(*self as *const Item, hasher);
-    }
-}
-
-impl<'a> PartialEq for &'a Item {
-    fn eq(&self, other: &Self) -> bool {
-        (*self as *const Item) == (*other as *const Item)
-    }
-}
-
-impl<'a> Eq for &'a Item {}
-
 /// result of a single gacha
 #[derive(Debug)]
-pub struct Pull<'a> {
+pub struct Pull {
     pub time: DateTime<Local>,
-    pub item: &'a Item,
+    pub item: Item,
 }
 
 /// information of a gacha pool

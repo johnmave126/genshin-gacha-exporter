@@ -45,7 +45,9 @@ fn item_list_url(region: &str, lang: &str) -> anyhow::Result<Url> {
 }
 
 /// ID for "The Stringless", used to identify the local identifier for weapon
-const WEAPON_ID: usize = 15405;
+const WEAPON_ID: &str = "15405";
+/// ID for "Venti", used to identify the local identifier for character
+const CHARACTER_ID: &str = "1022";
 
 /// The user-agent to use
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 6.1; Unity 3D; ZFBrowser 2.1.0; Genshin Impact 1.2.0_1565149_1627898) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.96 Safari/537.36";
@@ -92,10 +94,11 @@ struct GachaResult {
     #[serde_as(as = "DisplayFromStr")]
     uid: usize,
     gacha_type: String,
-    #[serde_as(as = "DisplayFromStr")]
-    item_id: usize,
     count: String,
     time: String,
+    #[serde(flatten)]
+    item: GachaItem,
+    lang: String,
 }
 
 /// Payload for endpoint `getGachaLog`
@@ -113,8 +116,7 @@ struct GachaResultPage {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 struct GachaItem {
-    #[serde_as(as = "DisplayFromStr")]
-    item_id: usize,
+    item_id: String,
     name: String,
     item_type: String,
     #[serde_as(as = "DisplayFromStr")]
@@ -124,10 +126,12 @@ struct GachaItem {
 /// A client used to query Genshin gacha info
 #[derive(Debug)]
 pub struct Client {
+    /// identifier for a weapon
+    weapon_identifier: String,
+    /// identifier for a character
+    character_identifier: String,
     /// metadata for pools
     pools: Vec<Pool>,
-    /// metadata for items
-    items: HashMap<usize, Item>,
     /// backing http client
     client: ReqClient,
     /// base query to use
@@ -168,13 +172,14 @@ impl Client {
         let pools_task = Self::request_pools(&client, &base_query, &base_url, pools_pb);
         let items_task = Self::request_items(&client, &base_query, items_pb);
         let progress_task = spawn_blocking(move || mp.join());
-        let (pools, items, _) = tokio::join!(pools_task, items_task, progress_task);
+        let (pools, identifiers, _) = tokio::join!(pools_task, items_task, progress_task);
         let pools = pools.context("加载卡池列表失败")?;
-        let items = items.context("加载图鉴失败")?;
+        let (weapon_identifier, character_identifier) = identifiers.context("加载图鉴失败")?;
 
         Ok(Self {
+            weapon_identifier,
+            character_identifier,
             pools,
-            items,
             client,
             base_query,
             base_url,
@@ -187,7 +192,7 @@ impl Client {
     }
 
     /// Get a chronological log of all the pulls from `pool`
-    pub async fn request_gacha_log(&self, pool: &Pool) -> anyhow::Result<Vec<Pull<'_>>> {
+    pub async fn request_gacha_log(&self, pool: &Pool) -> anyhow::Result<Vec<Pull>> {
         // set up additional queries
         let query = vec![
             ("init_type".to_owned(), pool.key.clone()),
@@ -220,11 +225,26 @@ impl Client {
                     let page: Vec<Pull> = page
                         .list
                         .into_iter()
-                        .filter_map(|pull| {
-                            self.items.get(&pull.item_id).map(|item| Pull {
-                                time: Local.datetime_from_str(&pull.time, "%Y-%m-%d %T").unwrap(),
-                                item,
-                            })
+                        .map(|pull| Pull {
+                            time: Local.datetime_from_str(&pull.time, "%Y-%m-%d %T").unwrap(),
+                            item: {
+                                let rarity = match pull.item.rank_type {
+                                    5 => Rarity::Five,
+                                    4 => Rarity::Four,
+                                    3 => Rarity::Three,
+                                    _ => unreachable!("图鉴中含有范围外的稀有度"),
+                                };
+                                let item_type = if pull.item.item_type == self.weapon_identifier {
+                                    ItemType::Weapon
+                                } else {
+                                    ItemType::Character
+                                };
+                                Item {
+                                    name: pull.item.name,
+                                    rarity,
+                                    item_type,
+                                }
+                            },
                         })
                         .collect();
                     Ok::<_, anyhow::Error>(page)
@@ -290,12 +310,12 @@ impl Client {
             .collect())
     }
 
-    /// Get a list of items in the game
+    /// Get the identifier for weapon and character
     async fn request_items(
         client: &ReqClient,
         base_query: &BaseQuery,
         pb: ProgressBar,
-    ) -> anyhow::Result<HashMap<usize, Item>> {
+    ) -> anyhow::Result<(String, String)> {
         pb.set_message("加载图鉴");
         // get region/lang specific url
         let url = item_list_url(&base_query.region, &base_query.lang)?;
@@ -305,44 +325,20 @@ impl Client {
             .await?
             .json::<Vec<GachaItem>>()
             .await?;
-        let item_db: HashMap<usize, GachaItem> = item_list
-            .into_iter()
-            .map(|item| (item.item_id, item))
-            .collect();
-
-        // determine the identifier for all the weapons in the current language setting
-        let weapon_identifier = item_db
-            .get(&WEAPON_ID)
+        let weapon_identifier = item_list
+            .iter()
+            .find(|item| item.item_id == WEAPON_ID)
             .ok_or(anyhow!("内置的绝弦ID已过期，无法建立图鉴"))?
             .item_type
             .clone();
-        // convert api response to our type
-        let item_db = item_db
-            .into_iter()
-            .map(|(id, item)| {
-                let rarity = match item.rank_type {
-                    5 => Rarity::Five,
-                    4 => Rarity::Four,
-                    3 => Rarity::Three,
-                    _ => unreachable!("图鉴中含有范围外的稀有度"),
-                };
-                let item_type = if item.item_type == weapon_identifier {
-                    ItemType::Weapon
-                } else {
-                    ItemType::Character
-                };
-                (
-                    id,
-                    Item {
-                        name: item.name,
-                        rarity,
-                        item_type,
-                    },
-                )
-            })
-            .collect();
+        let character_identifier = item_list
+            .iter()
+            .find(|item| item.item_id == CHARACTER_ID)
+            .ok_or(anyhow!("内置的温迪ID已过期，无法建立图鉴"))?
+            .item_type
+            .clone();
         pb.finish_with_message("已加载图鉴");
-        Ok(item_db)
+        Ok((weapon_identifier, character_identifier))
     }
 
     /// Get response from Genshin API server
