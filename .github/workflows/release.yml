@@ -74,6 +74,15 @@ jobs:
           default: true
           override: true
 
+      - name: Restore Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.edition.target }}-cargo-${{ hashFiles('**/recipe.json') }}
+
       - name: Build
         run: cargo build --target ${{ matrix.edition.target }} --release
 

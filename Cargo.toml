@@ -21,9 +21,9 @@ lazy_static = "1.4.0"
 rcgen = { version = "0.8.9", features = ["x509-parser"] }
 reqwest = { version = "0.11.0", features = ["json", "gzip", "cookies"] }
 rustls = "0.19.0"
-serde = { version = "1.0.122", features = ["derive"] }
-serde_with = "1.6.1"
-tokio = { version = "1.1.0", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+serde = { version = "1.0.123", features = ["derive"] }
+serde_with = "1.6.2"
+tokio = { version = "1.1.1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
 tokio-rustls = "0.22.0"
 
 [target.'cfg(windows)'.dependencies]
