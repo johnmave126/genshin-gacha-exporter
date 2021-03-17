@@ -1,5 +1,5 @@
 /// Client for Genshin API
-use std::{collections::HashMap, future, iter::once};
+use std::{cell::Cell, collections::HashMap, future, iter::once, rc::Rc};
 
 use anyhow::{anyhow, Context};
 use chrono::{Local, TimeZone};
@@ -83,6 +83,8 @@ struct GachaResult {
     #[serde(flatten)]
     item: GachaItem,
     lang: String,
+    #[serde_as(as = "DisplayFromStr")]
+    id: u64,
 }
 
 /// Payload for endpoint `getGachaLog`
@@ -192,19 +194,29 @@ impl Client {
         pb.set_message("正在加载，已");
         // iterate through pages
         let mut pull_list: Vec<Pull> = stream::iter(1..)
-            .then(|page: usize| {
+            .scan(Rc::new(Cell::new(0u64)), |end_id, page: usize| {
                 let query = query.clone();
+                let end_id = end_id.clone();
                 async move {
                     // get records from current page
-                    let page: GachaResultPage = Self::issue_api(
+                    let page: anyhow::Result<GachaResultPage> = Self::issue_api(
                         &self.client,
                         &self.base_query,
                         &format!("{}/getGachaLog", self.base_url),
                         query
                             .into_iter()
-                            .chain(once(("page".to_owned(), page.to_string()))),
+                            .chain(once(("page".to_owned(), page.to_string())))
+                            .chain(once(("end_id".to_owned(), end_id.get().to_string()))),
                     )
-                    .await?;
+                    .await;
+                    let page = match page {
+                        Ok(page) => page,
+                        Err(e) => return Some(Err(e)),
+                    };
+                    // update end_id
+                    if let Some(pull) = page.list.last() {
+                        end_id.set(pull.id);
+                    }
                     // convert each pull from API format to our format
                     let page: Vec<Pull> = page
                         .list
@@ -231,7 +243,7 @@ impl Client {
                             },
                         })
                         .collect();
-                    Ok::<_, anyhow::Error>(page)
+                    Some(Ok::<_, anyhow::Error>(page))
                 }
             })
             // stop when a page is empty, indicating end of log
